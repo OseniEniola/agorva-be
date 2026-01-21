@@ -16,7 +16,7 @@ export default registerAs('database', (): TypeOrmModuleOptions => ({
   entities: [__dirname + '/../**/*.entity{.ts,.js}'],
   
   // Auto-run migrations (only in development!)
-  synchronize: process.env.NODE_ENV === 'development', // ⚠️ NEVER true in production!
+  synchronize: process.env.TYPEORM_MIGRATIONS_SYNC === 'true', // ⚠️ NEVER true in production!
   
   // Logging
   logging: process.env.NODE_ENV === 'development',
