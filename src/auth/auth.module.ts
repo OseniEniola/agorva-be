@@ -8,11 +8,16 @@ import { JwtModule } from '@nestjs/jwt';
 import { LocalStrategy } from './strategies/local.strategy';
 import { JwtStrategy } from './strategies/jwt.strategy';
 import { JwtRefreshStrategy } from './strategies/jwt-refresh.strategy';
+import { EmailModule } from 'src/email/email.module';
+import { TypeOrmModule } from '@nestjs/typeorm';
+import { EmailVerification } from './entities/email-verification.entity';
 
 @Module({
   providers: [AuthService, LocalStrategy, JwtStrategy, JwtRefreshStrategy],
   controllers: [AuthController],
-  imports: [UsersModule, PassportModule, ConfigModule,
+  imports: [
+    TypeOrmModule.forFeature([EmailVerification]),
+    UsersModule, PassportModule, ConfigModule, EmailModule,
     JwtModule.registerAsync({
       imports: [ConfigModule],
       inject: [ConfigService],

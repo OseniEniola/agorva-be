@@ -14,6 +14,7 @@ import { FarmersModule } from './farmers/farmers.module';
 import { RetailersModule } from './retailers/retailers.module';
 import { ProductsModule } from './products/products.module';
 import { EnumsModule } from './enums/enums.module';
+import { EmailModule } from './email/email.module';
 
 @Module({
   imports: [
@@ -50,6 +51,8 @@ import { EnumsModule } from './enums/enums.module';
     ProductsModule,
 
     EnumsModule,
+
+    EmailModule,
   ],
   controllers: [AppController],
   providers: [

@@ -26,7 +26,7 @@ async function bootstrap() {
   //app.useGlobalInterceptors(new ClassSerializerInterceptor(app.get(Reflector)));
 
   // Apply global response transformation
-  app.useGlobalInterceptors(new TransformInterceptor());
+  //app.useGlobalInterceptors(new TransformInterceptor());
 
   // Apply global exception filter
   app.useGlobalFilters(new HttpExceptionFilter());
@@ -37,7 +37,7 @@ async function bootstrap() {
     credentials: true,
   });
   
-  app.useGlobalInterceptors(new LoggingInterceptor(), new TransformInterceptor())
+  app.useGlobalInterceptors(new LoggingInterceptor())
 
   // Setup Swagger (only if enabled)
   const swaggerEnabled = configService.get<boolean>('app.swagger.enabled');

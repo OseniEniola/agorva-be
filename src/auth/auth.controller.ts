@@ -1,4 +1,4 @@
-import { Body, ClassSerializerInterceptor, Controller, Get, HttpCode, HttpStatus, Post, UseGuards, Request, UseInterceptors } from "@nestjs/common";
+import { Body, ClassSerializerInterceptor, Controller, Get, HttpCode, HttpStatus, Post, UseGuards, Request, UseInterceptors, Query } from "@nestjs/common";
 import { Public } from "./decorators/public.decorator";
 import { RegisterDto } from "./dto/register.dto";
 import { AuthGuard } from "@nestjs/passport";
@@ -9,6 +9,7 @@ import { AuthService } from "./auth.service";
 import { ApiOperation, ApiResponse } from "@nestjs/swagger";
 import { User } from "src/users/entities/user.entity";
 import { BaseResponse } from "src/common/interfaces/api-response";
+import { ResendVerificationDto, VerifyEmailDto } from "./dto/verify-email.dto";
 
 @Controller('auth')
 @UseInterceptors(ClassSerializerInterceptor)
@@ -37,6 +38,22 @@ export class AuthController {
   })
   async register(@Body() registerDto: RegisterDto) {
     return this.authService.register(registerDto);
+  }
+
+    @Public()
+  @Get('verify-email')
+  @ApiOperation({ summary: 'Verify email address' })
+  @ApiResponse({ status: 200, description: 'Email verified successfully' })
+  async verifyEmail(@Query() verifyEmailDto: VerifyEmailDto) {
+    return this.authService.verifyEmail(verifyEmailDto.token);
+  }
+
+  @Public()
+  @Post('resend-verification')
+  @ApiOperation({ summary: 'Resend verification email' })
+  @ApiResponse({ status: 200, description: 'Verification email sent' })
+  async resendVerification(@Body() resendDto: ResendVerificationDto) {
+    return this.authService.resendVerificationEmail(resendDto.email);
   }
 
   @Public()

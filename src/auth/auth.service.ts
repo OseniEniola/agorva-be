@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   ConflictException,
   Injectable,
   NotFoundException,
@@ -10,8 +11,13 @@ import { ConfigService } from '@nestjs/config';
 import { User } from 'src/users/entities/user.entity';
 import { UserRole, UserStatus } from 'src/common/enums/user-role.enum';
 import * as bcrypt from 'bcrypt';
+import * as crypto from 'crypto';
 import { RegisterDto } from './dto/register.dto';
 import { ResponseUtil } from 'src/common/utils/response.util';
+import { EmailService } from 'src/email/email.service';
+import { EmailVerification } from './entities/email-verification.entity';
+import { InjectRepository } from '@nestjs/typeorm';
+import { Repository } from 'typeorm';
 
 @Injectable()
 export class AuthService {
@@ -19,6 +25,9 @@ export class AuthService {
     private userService: UsersService,
     private jwtService: JwtService,
     private configService: ConfigService,
+    private emailService: EmailService,
+    @InjectRepository(EmailVerification)
+    private emailVerificationRepository: Repository<EmailVerification>
   ) {}
 
   async validateUser(
@@ -77,10 +86,91 @@ export class AuthService {
     });
 
     //Add email verification logic
+    const token = await this.sendVerificationEmail(user);
 
     const { password: _, refreshToken: __, ...result } = user;
 
-    return ResponseUtil.success({ user: result }, 'Registration successful');
+    return ResponseUtil.success({ user: result, token }, 'Registration successful');
+  }
+  async sendVerificationEmail(user: User): Promise<string> {
+    // Generate random token
+   const token = crypto.randomInt(100000, 1000000).toString();
+
+    // Set expiration (24 hours from now)
+    const expiresAt = new Date();
+    expiresAt.setHours(expiresAt.getHours() + 24);
+
+    // Delete any existing verification tokens for this user
+    await this.emailVerificationRepository.delete({ userId: user.id });
+
+    // Create new verification record
+    await this.emailVerificationRepository.save({
+      userId: user.id,
+      token,
+      expiresAt,
+      isUsed: false,
+    });
+
+    // Send email
+   /* await this.emailService.sendVerificationEmail(
+      user.email,
+      token,
+      user.firstName,
+    );*/
+
+    return token
+  }
+
+  async verifyEmail(token: string) {
+    const verification = await this.emailVerificationRepository.findOne({
+      where: { token },
+      relations: ['user'],
+    });
+
+    if (!verification) {
+      throw new BadRequestException('Invalid verification token');
+    }
+
+    if (verification.isUsed) {
+      throw new BadRequestException('This verification link has already been used');
+    }
+
+    if (new Date() > verification.expiresAt) {
+      throw new BadRequestException('Verification link has expired');
+    }
+
+    // Update user status to ACTIVE
+    await this.userService.update(verification.userId, {
+      status: UserStatus.ACTIVE,
+    });
+
+    // Mark verification as used
+    verification.isUsed = true;
+    await this.emailVerificationRepository.save(verification);
+
+    return ResponseUtil.success(
+      null,
+      'Email verified successfully. You can now log in.',
+    );
+  }
+
+  async resendVerificationEmail(email: string) {
+    const user = await this.userService.findByEmail(email);
+
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
+
+    if (user.status === UserStatus.ACTIVE) {
+      throw new BadRequestException('Email is already verified');
+    }
+
+    await this.sendVerificationEmail(user);
+
+    return ResponseUtil.success(
+      null,
+      'Verification email sent successfully',
+    );
   }
 
   async login(user: User) {
