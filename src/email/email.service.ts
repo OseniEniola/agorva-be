@@ -10,23 +10,36 @@ export class EmailService {
   constructor(private configService: ConfigService) {
     this.transporter = nodemailer.createTransport({
       host: this.configService.get('MAIL_HOST'),
-      port: this.configService.get('MAIL_PORT'),
-      secure: this.configService.get('SMTP_SECURE') === 'true',
+      port: Number(this.configService.get('MAIL_PORT')),
+      secure: this.configService.get('MAIL_PORT') === '465',
       auth: {
         user: this.configService.get('MAIL_USER'),
         pass: this.configService.get('MAIL_PASSWORD'),
       },
+    
+    });
+
+    this.transporter.verify((error:any, success) => {
+      if (error) {
+        Logger.error('SMTP connection failed', error);
+        Logger.error(error.message)
+        Logger.error(error.stack);
+        Logger.error(error?.code)
+      } else {
+        Logger.log('SMTP server is ready to send emails');
+      }
     });
   }
-
 
   async sendVerificationEmail(email: string, token: string, firstName: string) {
     const hostEmail = this.configService.get('MAIL_FROM');
     const verificationUrl = `${this.configService.get('FRONTEND_URL')}/auth/verify-email?token=${token}`;
 
-    Logger.log(`Sending verification email from ${hostEmail} with token ${token}`);
+    Logger.log(
+      `Sending verification email from ${hostEmail} with token ${token}`,
+    );
     const mailOptions = {
-      from: `"${this.configService.get('APP_NAME')}" <${this.configService.get('SMTP_FROM')}>`,
+      from: `"${this.configService.get('APP_NAME')}" <${this.configService.get('MAIL_FROM')}>`,
       to: email,
       subject: 'Verify Your Email Address',
       html: this.getVerificationEmailTemplate(firstName, verificationUrl),
@@ -41,11 +54,15 @@ export class EmailService {
     }
   }
 
-  async sendPasswordResetEmail(email: string, token: string, firstName: string) {
+  async sendPasswordResetEmail(
+    email: string,
+    token: string,
+    firstName: string,
+  ) {
     const resetUrl = `${this.configService.get('FRONTEND_URL')}/auth/reset-password?token=${token}`;
 
     const mailOptions = {
-      from: `"${this.configService.get('APP_NAME')}" <${this.configService.get('SMTP_FROM')}>`,
+      from: `"${this.configService.get('APP_NAME')}" <${this.configService.get('MAIL_FROM')}>`,
       to: email,
       subject: 'Reset Your Password',
       html: this.getPasswordResetEmailTemplate(firstName, resetUrl),
@@ -60,7 +77,10 @@ export class EmailService {
     }
   }
 
-  private getVerificationEmailTemplate(firstName: string, verificationUrl: string): string {
+  private getVerificationEmailTemplate(
+    firstName: string,
+    verificationUrl: string,
+  ): string {
     return `
       <!DOCTYPE html>
       <html>
@@ -128,7 +148,10 @@ export class EmailService {
     `;
   }
 
-  private getPasswordResetEmailTemplate(firstName: string, resetUrl: string): string {
+  private getPasswordResetEmailTemplate(
+    firstName: string,
+    resetUrl: string,
+  ): string {
     return `
       <!DOCTYPE html>
       <html>

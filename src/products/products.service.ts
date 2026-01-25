@@ -11,6 +11,11 @@ import { CreateProductDto } from './dto/create-product.dto';
 import { UpdateProductDto } from './dto/update-product.dto';
 import { ProductQueryDto } from './dto/product-query.dto';
 import { CreateReviewDto } from './dto/create-review.dto';
+import { SearchProductsDto, SearchSortBy } from './dto/search-products.dto';
+import {
+  ProductSearchResponseDto,
+  ProductSearchResultDto,
+} from './dto/search-results.dto';
 import { Product } from './entities/products-entity';
 import { ProductImage } from './entities/product-image-entity';
 import { Review } from './entities/product-review-entity';
@@ -19,6 +24,8 @@ import {
   BulkOperationResultDto,
   BulkProductDto,
 } from './dto/bulk-operations.dto';
+import { Farmer } from 'src/farmers/entities/farmer.entities';
+import { Retailer } from 'src/retailers/entities/retailer.entities';
 import * as XLSX from 'xlsx';
 import * as Papa from 'papaparse';
 import slugify from 'slugify';
@@ -34,6 +41,12 @@ export class ProductsService {
 
     @InjectRepository(Review)
     private reviewsRepository: Repository<Review>,
+
+    @InjectRepository(Farmer)
+    private farmersRepository: Repository<Farmer>,
+
+    @InjectRepository(Retailer)
+    private retailersRepository: Repository<Retailer>,
   ) {}
 
   async create(
@@ -51,6 +64,9 @@ export class ProductsService {
       slug,
       status: createProductDto.status || ProductStatus.DRAFT,
     });
+
+    // Sync seller location before saving
+    await this.syncSellerLocation(product);
 
     const savedProduct = await this.productsRepository.save(product);
 
@@ -255,6 +271,10 @@ export class ProductsService {
     }
 
     Object.assign(product, updateProductDto);
+
+    // Sync seller location in case it changed
+    await this.syncSellerLocation(product);
+
     return await this.productsRepository.save(product);
   }
 
@@ -643,5 +663,308 @@ export class ProductsService {
       XLSX.utils.book_append_sheet(workbook, worksheet, 'Products');
       return XLSX.write(workbook, { type: 'buffer', bookType: 'xlsx' });
     }
+  }
+
+  /**
+   * Search products by location with PostGIS spatial queries
+   */
+  async searchByLocation(
+    searchDto: SearchProductsDto,
+  ): Promise<ProductSearchResponseDto> {
+    const {
+      latitude,
+      longitude,
+      radiusKm = 50,
+      query,
+      category,
+      certifications,
+      condition,
+      origin,
+      sellerType,
+      minPrice,
+      maxPrice,
+      deliveryAvailable,
+      pickupOnly,
+      minRating,
+      sortBy = SearchSortBy.DISTANCE,
+      page = 1,
+      limit = 20,
+    } = searchDto;
+
+    const radiusMeters = radiusKm * 1000;
+    const skip = (page - 1) * limit;
+
+    // Build the query
+    const queryBuilder = this.productsRepository
+      .createQueryBuilder('product')
+      .leftJoinAndSelect('product.images', 'images')
+      .leftJoinAndSelect('product.seller', 'seller')
+      .where('product.status = :status', { status: ProductStatus.ACTIVE })
+      .andWhere('product.sellerLatitude IS NOT NULL')
+      .andWhere('product.sellerLongitude IS NOT NULL')
+      .andWhere('product.isAvailable = :isAvailable', { isAvailable: true });
+
+    // Spatial filter - products within radius
+    queryBuilder.andWhere(
+      `ST_DWithin(
+        product.sellerLocation::geography,
+        ST_SetSRID(ST_MakePoint(:lng, :lat), 4326)::geography,
+        :radius
+      )`,
+      { lat: latitude, lng: longitude, radius: radiusMeters },
+    );
+
+    // Calculate distance for each product
+    queryBuilder.addSelect(
+      `ST_Distance(
+        product.sellerLocation::geography,
+        ST_SetSRID(ST_MakePoint(:lng, :lat), 4326)::geography
+      ) / 1000`,
+      'distance',
+    );
+
+    // Text search
+    if (query) {
+      queryBuilder.andWhere(
+        '(product.name ILIKE :query OR product.description ILIKE :query OR product.tags::text ILIKE :query)',
+        { query: `%${query}%` },
+      );
+    }
+
+    // Filters
+    if (category) {
+      queryBuilder.andWhere('product.category = :category', { category });
+    }
+
+    if (certifications && certifications.length > 0) {
+      queryBuilder.andWhere('product.certifications && :certifications', {
+        certifications,
+      });
+    }
+
+    if (condition) {
+      queryBuilder.andWhere('product.condition = :condition', { condition });
+    }
+
+    if (origin) {
+      queryBuilder.andWhere('product.origin = :origin', { origin });
+    }
+
+    if (sellerType) {
+      queryBuilder.andWhere('product.sellerType = :sellerType', {
+        sellerType,
+      });
+    }
+
+    if (minPrice !== undefined) {
+      queryBuilder.andWhere('product.price >= :minPrice', { minPrice });
+    }
+
+    if (maxPrice !== undefined) {
+      queryBuilder.andWhere('product.price <= :maxPrice', { maxPrice });
+    }
+
+    if (pickupOnly) {
+      queryBuilder.andWhere('product.pickupOnly = :pickupOnly', {
+        pickupOnly: true,
+      });
+    }
+
+    if (deliveryAvailable) {
+      // Check if seller can deliver to user's location
+      queryBuilder.andWhere(
+        `(product.sellerDeliveryRadiusKm * 1000) >= (ST_Distance(
+          product.sellerLocation::geography,
+          ST_SetSRID(ST_MakePoint(:lng, :lat), 4326)::geography
+        ))`,
+      );
+    }
+
+    if (minRating) {
+      queryBuilder.andWhere('product.averageRating >= :minRating', {
+        minRating,
+      });
+    }
+
+    // Sorting
+    switch (sortBy) {
+      case SearchSortBy.DISTANCE:
+        queryBuilder.orderBy('distance', 'ASC');
+        break;
+      case SearchSortBy.PRICE_LOW_TO_HIGH:
+        queryBuilder.orderBy('product.price', 'ASC');
+        break;
+      case SearchSortBy.PRICE_HIGH_TO_LOW:
+        queryBuilder.orderBy('product.price', 'DESC');
+        break;
+      case SearchSortBy.RATING:
+        queryBuilder.orderBy('product.averageRating', 'DESC');
+        break;
+      case SearchSortBy.NEWEST:
+        queryBuilder.orderBy('product.createdAt', 'DESC');
+        break;
+      case SearchSortBy.POPULAR:
+        queryBuilder.orderBy('product.salesCount', 'DESC');
+        break;
+      default:
+        queryBuilder.orderBy('distance', 'ASC');
+    }
+
+    // Get total count
+    const totalQuery = queryBuilder.clone();
+    const total = await totalQuery.getCount();
+
+    // Apply pagination
+    queryBuilder.skip(skip).take(limit);
+
+    // Execute query
+    const rawAndEntities = await queryBuilder.getRawAndEntities();
+
+    // Format results
+    const results: ProductSearchResultDto[] = await Promise.all(
+      rawAndEntities.entities.map(async (product, index) => {
+        const distance = parseFloat(rawAndEntities.raw[index].distance);
+        const deliveryAvailableToUser =
+          (product.sellerDeliveryRadiusKm &&
+            distance <= product.sellerDeliveryRadiusKm) ||
+          false;
+
+        // Get seller details
+        let sellerInfo;
+        if (product.sellerType === 'farmer') {
+          const farmer = await this.farmersRepository.findOne({
+            where: { userId: product.sellerId },
+          });
+          sellerInfo = {
+            id: farmer?.id || product.sellerId,
+            name: farmer?.farmName || product.businessName || 'Unknown',
+            type: 'farmer' as const,
+            location: {
+              latitude: product.sellerLatitude,
+              longitude: product.sellerLongitude,
+              address: product.sellerAddress || farmer?.farmAddress || '',
+            },
+            deliveryRadiusKm: farmer?.deliveryRadiusKm,
+            deliveryDays: farmer?.deliveryDays,
+            pickupLocations: farmer?.pickupLocations,
+            averageRating: farmer?.averageRating || 0,
+            totalReviews: farmer?.totalReviews || 0,
+          };
+        } else {
+          const retailer = await this.retailersRepository.findOne({
+            where: { userId: product.sellerId },
+          });
+          sellerInfo = {
+            id: retailer?.id || product.sellerId,
+            name: retailer?.businessName || product.businessName || 'Unknown',
+            type: 'retailer' as const,
+            location: {
+              latitude: product.sellerLatitude,
+              longitude: product.sellerLongitude,
+              address: product.sellerAddress || retailer?.businessAddress || '',
+            },
+            deliveryRadiusKm: retailer?.deliveryRadiusKm,
+            deliveryDays: retailer?.deliveryDays,
+            pickupLocations: retailer?.pickupLocations,
+            businessType: retailer?.businessType,
+            averageRating: retailer?.averageRating || 0,
+            totalReviews: retailer?.totalReviews || 0,
+          };
+        }
+
+        return {
+          product,
+          distance,
+          seller: sellerInfo,
+          deliveryAvailable: deliveryAvailableToUser,
+          pickupAvailable: !product.pickupOnly || product.pickupOnly,
+        };
+      }),
+    );
+
+    const totalPages = Math.ceil(total / limit);
+
+    return {
+      results,
+      meta: {
+        total,
+        page,
+        limit,
+        totalPages,
+        searchRadius: radiusKm,
+        userLocation: { latitude, longitude },
+      },
+    };
+  }
+
+  /**
+   * Sync seller location to product for efficient spatial queries
+   * Called when product is created or updated
+   */
+  private async syncSellerLocation(product: Product): Promise<void> {
+    if (product.sellerType === 'farmer') {
+      const farmer = await this.farmersRepository.findOne({
+        where: { userId: product.sellerId },
+      });
+
+      if (farmer && farmer.latitude && farmer.longitude) {
+        product.sellerLatitude = farmer.latitude;
+        product.sellerLongitude = farmer.longitude;
+        product.sellerAddress = farmer.farmAddress;
+        product.sellerDeliveryRadiusKm = farmer.deliveryRadiusKm;
+
+        // Create PostGIS geography point
+        product.sellerLocation = `SRID=4326;POINT(${farmer.longitude} ${farmer.latitude})`;
+      }
+    } else if (product.sellerType === 'retailer') {
+      const retailer = await this.retailersRepository.findOne({
+        where: { userId: product.sellerId },
+      });
+
+      if (retailer && retailer.latitude && retailer.longitude) {
+        product.sellerLatitude = retailer.latitude;
+        product.sellerLongitude = retailer.longitude;
+        product.sellerAddress = retailer.businessAddress;
+        product.sellerDeliveryRadiusKm = retailer.deliveryRadiusKm;
+
+        // Create PostGIS geography point
+        product.sellerLocation = `SRID=4326;POINT(${retailer.longitude} ${retailer.latitude})`;
+      }
+    }
+  }
+
+  /**
+   * Batch sync all product locations from their sellers
+   * Useful for migrations or when seller locations change
+   */
+  async syncAllProductLocations(
+    sellerType?: 'farmer' | 'retailer',
+  ): Promise<{ updated: number; failed: number }> {
+    let updated = 0;
+    let failed = 0;
+
+    const queryBuilder = this.productsRepository.createQueryBuilder('product');
+
+    if (sellerType) {
+      queryBuilder.where('product.sellerType = :sellerType', { sellerType });
+    }
+
+    const products = await queryBuilder.getMany();
+
+    for (const product of products) {
+      try {
+        await this.syncSellerLocation(product);
+        await this.productsRepository.save(product);
+        updated++;
+      } catch (error) {
+        console.error(
+          `Failed to sync location for product ${product.id}:`,
+          error,
+        );
+        failed++;
+      }
+    }
+
+    return { updated, failed };
   }
 }

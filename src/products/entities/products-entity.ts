@@ -141,6 +141,30 @@ export class Product {
   @Column({ nullable: true })
   distanceFromBuyer?: number; // In miles/km
 
+  // Denormalized seller location for efficient spatial queries
+  @Column({ type: 'decimal', precision: 10, scale: 8, nullable: true })
+  @Index()
+  sellerLatitude?: number;
+
+  @Column({ type: 'decimal', precision: 11, scale: 8, nullable: true })
+  @Index()
+  sellerLongitude?: number;
+
+  @Column({
+    type: 'geography',
+    spatialFeatureType: 'Point',
+    srid: 4326,
+    nullable: true,
+  })
+  @Index({ spatial: true })
+  sellerLocation?: string; // PostGIS geography point
+
+  @Column({ nullable: true })
+  sellerAddress?: string; // Cached seller address
+
+  @Column({ type: 'int', nullable: true })
+  sellerDeliveryRadiusKm?: number; // Cached from seller
+
   // Availability
   @Column({ default: true })
   isAvailable: boolean;

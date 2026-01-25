@@ -23,13 +23,54 @@
 
 ## Description
 
-[Nest](https://github.com/nestjs/nest) framework TypeScript starter repository.
+**Agorva Backend** - An agricultural marketplace platform built with NestJS that connects farmers, retailers, and consumers. Features include location-based product search with PostGIS, user authentication, email verification, and comprehensive product management.
 
 ## Project setup
 
 ```bash
 $ pnpm install
 ```
+
+## Environment Configuration
+
+Create environment files based on your environment:
+
+```bash
+# Development
+.env.development
+
+# Staging
+.env.staging
+
+# Production
+.env.production
+```
+
+Required environment variables:
+- `DB_HOST`, `DB_PORT`, `DB_USERNAME`, `DB_PASSWORD`, `DB_NAME`
+- `JWT_SECRET`, `JWT_REFRESH_SECRET`
+- `MAIL_HOST`, `MAIL_PORT`, `MAIL_USER`, `MAIL_PASSWORD`, `MAIL_FROM`
+
+## Database Migrations
+
+```bash
+# Run pending migrations
+$ pnpm run migration:run
+
+# Revert last migration
+$ pnpm run migration:revert
+
+# Show migration status
+$ pnpm run migration:show
+
+# Generate a new migration (after entity changes)
+$ pnpm run migration:generate src/database/migrations/MigrationName
+
+# Create a blank migration
+$ pnpm run migration:create src/database/migrations/MigrationName
+```
+
+**Note:** After cloning the repository, run `pnpm run migration:run` to set up the database schema including PostGIS for location-based features.
 
 ## Compile and run the project
 
@@ -57,6 +98,50 @@ $ pnpm run test:e2e
 $ pnpm run test:cov
 ```
 
+## Features
+
+### 🌍 Location-Based Product Search
+Search for products near any location using PostGIS spatial queries:
+- Find products within a specified radius (up to 500km)
+- Accurate distance calculations using Earth's spherical geometry
+- Filter by category, certifications, price, seller type
+- Check delivery availability based on seller's delivery radius
+- Sort by distance, price, rating, or popularity
+
+**Endpoint:** `POST /products/search/location`
+
+See [LOCATION_SEARCH.md](./LOCATION_SEARCH.md) for detailed documentation.
+
+### 🔐 Authentication & Authorization
+- JWT-based authentication with refresh tokens
+- Email verification with 6-digit tokens
+- Multi-role support (Farmer, Retailer, Consumer, Admin)
+- Password reset functionality
+
+### 👨‍🌾 Farmer Management
+- Comprehensive farm profiles with certifications
+- Multiple pickup locations
+- Delivery settings and radius configuration
+- Farm images and ratings
+
+### 🏪 Retailer Management
+- Business profiles with operating hours
+- Multiple staff member support
+- Delivery and pickup options
+- Business verification system
+
+### 📦 Product Management
+- Rich product listings with images
+- Bulk upload via CSV/Excel
+- Product reviews and ratings
+- Inventory management
+- Multiple certifications support
+
+### 📧 Email Service
+- Verification emails on registration
+- Password reset emails
+- SMTP configuration with Nodemailer
+
 ## Deployment
 
 When you're ready to deploy your NestJS application to production, there are some key steps you can take to ensure it runs as efficiently as possible. Check out the [deployment documentation](https://docs.nestjs.com/deployment) for more information.
@@ -69,6 +154,44 @@ $ mau deploy
 ```
 
 With Mau, you can deploy your application in just a few clicks, allowing you to focus on building features rather than managing infrastructure.
+
+## API Documentation
+
+Once the application is running, access the Swagger API documentation at:
+
+```
+http://localhost:3000/api
+```
+
+The Swagger UI provides interactive API documentation where you can test all endpoints.
+
+## Tech Stack
+
+- **Framework:** NestJS v11
+- **Language:** TypeScript v5.7
+- **Database:** PostgreSQL with PostGIS extension
+- **ORM:** TypeORM v0.3
+- **Authentication:** JWT + Passport
+- **Email:** Nodemailer
+- **Validation:** class-validator & class-transformer
+- **API Documentation:** Swagger/OpenAPI
+- **File Processing:** xlsx, papaparse
+
+## Project Structure
+
+```
+src/
+├── auth/           # Authentication & authorization
+├── users/          # User management
+├── farmers/        # Farmer profiles & management
+├── retailers/      # Retailer profiles & management
+├── products/       # Product management & search
+├── locations/      # Geographic data (countries, states, cities)
+├── email/          # Email service (Nodemailer)
+├── common/         # Shared utilities, decorators, guards
+├── config/         # Configuration files
+└── database/       # Migrations
+```
 
 ## Resources
 

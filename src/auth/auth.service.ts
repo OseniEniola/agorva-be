@@ -112,11 +112,11 @@ export class AuthService {
     });
 
     // Send email
-   /* await this.emailService.sendVerificationEmail(
+    await this.emailService.sendVerificationEmail(
       user.email,
       token,
       user.firstName,
-    );*/
+    );
 
     return token
   }

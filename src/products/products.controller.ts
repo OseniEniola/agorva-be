@@ -12,7 +12,7 @@ import {
   Request,
   UseInterceptors,
   UploadedFile,
-  BadRequestException
+  BadRequestException,
 } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { ProductsService } from './products.service';
@@ -20,15 +20,28 @@ import { CreateProductDto } from './dto/create-product.dto';
 import { UpdateProductDto } from './dto/update-product.dto';
 import { ProductQueryDto } from './dto/product-query.dto';
 import { CreateReviewDto } from './dto/create-review.dto';
+import { SearchProductsDto } from './dto/search-products.dto';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { Public } from '../auth/decorators/public.decorator';
 import { UserRole } from '../common/enums/user-role.enum';
 import { ResponseUtil } from '../common/utils/response.util';
 import { CurrentUser } from 'src/common/decorators/current-user.decorator';
-import { ApiBearerAuth, ApiBody, ApiConsumes, ApiOperation, ApiQuery, ApiResponse } from '@nestjs/swagger';
+import {
+  ApiBearerAuth,
+  ApiBody,
+  ApiConsumes,
+  ApiOperation,
+  ApiQuery,
+  ApiResponse,
+  ApiTags,
+} from '@nestjs/swagger';
 import { JwtAuthGuard } from 'src/auth/guards/jwt-auth.guard';
-import { BulkCreateProductsDto, BulkDeleteProductsDto, BulkOperationResultDto } from './dto/bulk-operations.dto';
+import {
+  BulkCreateProductsDto,
+  BulkDeleteProductsDto,
+  BulkOperationResultDto,
+} from './dto/bulk-operations.dto';
 import { FileInterceptor } from '@nestjs/platform-express';
 import type { Response } from 'express';
 
@@ -64,13 +77,17 @@ export class ProductsController {
 
   @Public()
   @Get()
-   @ApiOperation({ 
+  @ApiOperation({
     summary: 'Get all products',
-    description: 'Retrieve paginated list of products with filters'
+    description: 'Retrieve paginated list of products with filters',
   })
   @ApiQuery({ name: 'page', required: false, type: Number })
   @ApiQuery({ name: 'limit', required: false, type: Number })
-  @ApiQuery({ name: 'category', required: false, enum: ['vegetables', 'fruits', 'meat', 'dairy'] })
+  @ApiQuery({
+    name: 'category',
+    required: false,
+    enum: ['vegetables', 'fruits', 'meat', 'dairy'],
+  })
   @ApiQuery({ name: 'halal', required: false, type: Boolean })
   @ApiQuery({ name: 'kosher', required: false, type: Boolean })
   @ApiQuery({ name: 'organic', required: false, type: Boolean })
@@ -84,6 +101,29 @@ export class ProductsController {
       queryDto.limit || 20,
       total,
       'Products retrieved successfully',
+    );
+  }
+
+  @Public()
+  @Post('search/location')
+  @ApiOperation({
+    summary: 'Search products by location',
+    description:
+      'Search for products near a specific location using PostGIS spatial queries. Returns products within the specified radius with distance calculations.',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Products found successfully with location data',
+  })
+  @ApiResponse({
+    status: 400,
+    description: 'Invalid search parameters',
+  })
+  async searchByLocation(@Body() searchDto: SearchProductsDto) {
+    const result = await this.productsService.searchByLocation(searchDto);
+    return ResponseUtil.success(
+      result,
+      `Found ${result.results.length} products within ${searchDto.radiusKm}km`,
     );
   }
 
