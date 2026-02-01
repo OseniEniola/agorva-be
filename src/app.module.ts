@@ -15,6 +15,8 @@ import { RetailersModule } from './retailers/retailers.module';
 import { ProductsModule } from './products/products.module';
 import { EnumsModule } from './enums/enums.module';
 import { EmailModule } from './email/email.module';
+import { CartModule } from './cart/cart.module';
+import { DeliveryModule } from './delivery/delivery.module';
 
 @Module({
   imports: [
@@ -53,6 +55,10 @@ import { EmailModule } from './email/email.module';
     EnumsModule,
 
     EmailModule,
+
+    CartModule,
+
+    DeliveryModule,
   ],
   controllers: [AppController],
   providers: [

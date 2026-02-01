@@ -5,6 +5,9 @@ import { Product } from "../products/entities/products-entity";
 import { Retailer } from "../retailers/entities/retailer.entities";
 import { User } from "../users/entities/user.entity";
 import { Farmer } from "../farmers/entities/farmer.entities";
+import { Cart } from "../cart/entities/cart.entity";
+import { CartItem } from "../cart/entities/cart-item.entity";
+import { Delivery } from "../delivery/entities/delivery.entity";
 
 import { DataSource } from "typeorm";
 import * as dotenv from 'dotenv';
@@ -15,7 +18,7 @@ import * as dotenv from 'dotenv';
 const envFile = `.env.${process.env.NODE_ENV || 'development'}`;
 dotenv.config({ path: envFile });
 // Add all your entities here
-const entities = [User, Retailer,Product,ProductImage,Review, Farmer];
+const entities = [User, Retailer, Product, ProductImage, Review, Farmer, Cart, CartItem, Delivery];
 
 export const AppDataSource = new DataSource({
   type: 'postgres',
