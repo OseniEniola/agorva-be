@@ -25,9 +25,10 @@ export const AppDataSource = new DataSource({
   username: process.env.DB_USERNAME,
   password: process.env.DB_PASSWORD,
   database: process.env.DB_NAME,
-  synchronize: true, // enable for fresh deploy
+  synchronize: false,
   logging: false,
   entities,
-  migrations: ['src/database/migrations/*{.ts,.js}'],
+  migrationsRun: true,
+  migrations: [__dirname + '/../database/migrations/*{.ts,.js}'],
   schema: 'public',
 });

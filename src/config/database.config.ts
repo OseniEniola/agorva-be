@@ -37,3 +37,4 @@ export default registerAs('database', (): TypeOrmModuleOptions => ({
     ? { rejectUnauthorized: false } 
     : false,
 }));
+
