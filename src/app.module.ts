@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { Module, NestModule, MiddlewareConsumer } from '@nestjs/common';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import databaseConfig from './config/database.config';
@@ -17,6 +17,7 @@ import { EnumsModule } from './enums/enums.module';
 import { EmailModule } from './email/email.module';
 import { CartModule } from './cart/cart.module';
 import { DeliveryModule } from './delivery/delivery.module';
+import { TenantMiddleware } from './common/middleware/tenant.middleware';
 
 @Module({
   imports: [
@@ -69,4 +70,9 @@ import { DeliveryModule } from './delivery/delivery.module';
     },
   ],
 })
-export class AppModule {}
+export class AppModule implements NestModule {
+  configure(consumer: MiddlewareConsumer) {
+    // Apply tenant middleware to all routes
+    consumer.apply(TenantMiddleware).forRoutes('*');
+  }
+}

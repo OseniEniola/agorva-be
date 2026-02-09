@@ -89,6 +89,28 @@ export class FarmersController {
     return this.farmersService.canDeliverTo(id, latitude, longitude);
   }
 
+  @Public()
+  @Get('check-slug/:slug')
+  @ApiOperation({
+    summary: 'Check if business slug is available',
+    description: 'Validates slug format and checks if it\'s already taken by any farmer or retailer'
+  })
+  @ApiParam({ name: 'slug', description: 'Business slug to check', example: 'green-valley-farm' })
+  @ApiResponse({
+    status: 200,
+    description: 'Returns availability status',
+    schema: {
+      example: {
+        available: true,
+        valid: true,
+        message: 'This business slug is available!'
+      }
+    }
+  })
+  async checkSlug(@Param('slug') slug: string) {
+    return this.farmersService.checkSlugAvailability(slug);
+  }
+
   // Farmer-only endpoints
 
   @UseGuards(JwtAuthGuard, RolesGuard)

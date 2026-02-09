@@ -7,6 +7,10 @@ export class CreateRetailerDto {
   businessName: string;
 
   @IsString()
+  @IsOptional()
+  businessSlug?: string;
+
+  @IsString()
   businessAddress: string;
 
   @IsString()

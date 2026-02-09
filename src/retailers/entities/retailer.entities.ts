@@ -33,6 +33,10 @@ export class Retailer {
   @Column()
   businessName: string;
 
+  @ApiProperty()
+  @Column({ unique: true, nullable: true })
+  businessSlug: string;
+
   @ApiProperty({ enum: RetailerType })
   @Column({
     type: 'enum',

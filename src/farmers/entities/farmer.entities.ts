@@ -37,6 +37,10 @@ export class Farmer {
   farmName: string;
 
   @ApiProperty()
+  @Column({ unique: true, nullable: true })
+  businessSlug: string;
+
+  @ApiProperty()
   @Column({ type: 'text', nullable: true })
   description: string;
 

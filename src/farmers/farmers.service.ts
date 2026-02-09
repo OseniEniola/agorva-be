@@ -4,6 +4,7 @@ import {
   NotFoundException,
   ConflictException,
   ForbiddenException,
+  BadRequestException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
@@ -15,12 +16,16 @@ import { Farmer } from './entities/farmer.entities';
 import { FarmerStatus } from 'src/common/enums/business-enum';
 import { UpdateFarmerProfileDto } from './dto/update-farmer-profile.dto';
 import { UpdateBankDetailsDto } from './dto/update-bank-details.dto';
+import { SlugUtil } from 'src/common/utils/slug.util';
+import { Retailer } from 'src/retailers/entities/retailer.entities';
 
 @Injectable()
 export class FarmersService {
   constructor(
     @InjectRepository(Farmer)
     private farmerRepository: Repository<Farmer>,
+    @InjectRepository(Retailer)
+    private retailerRepository: Repository<Retailer>,
   ) {}
 
   // Create farmer profile
@@ -37,12 +42,60 @@ export class FarmersService {
       throw new ConflictException('Farmer profile already exists');
     }
 
+    // Handle businessSlug
+    let businessSlug = createFarmerProfileDto.businessSlug;
+
+    if (businessSlug) {
+      // Validate slug format
+      if (!SlugUtil.validateSlug(businessSlug)) {
+        throw new BadRequestException(
+          'Invalid business slug. Use only lowercase letters, numbers, and hyphens (3-63 characters).',
+        );
+      }
+
+      // Check if slug is already taken
+      const slugTaken = await this.isSlugTaken(businessSlug);
+      if (slugTaken) {
+        throw new ConflictException(
+          'This business slug is already taken. Please choose another one.',
+        );
+      }
+    } else {
+      // Auto-generate slug from farm name
+      const baseSlug = SlugUtil.generateSlug(createFarmerProfileDto.farmName);
+      businessSlug = await this.generateUniqueSlug(baseSlug);
+    }
+
     const farmer = this.farmerRepository.create({
       userId,
       ...createFarmerProfileDto,
+      businessSlug,
     });
 
     return this.farmerRepository.save(farmer);
+  }
+
+  // Check if a business slug is already taken by any farmer or retailer
+  private async isSlugTaken(slug: string): Promise<boolean> {
+    const [farmer, retailer] = await Promise.all([
+      this.farmerRepository.findOne({ where: { businessSlug: slug } }),
+      this.retailerRepository.findOne({ where: { businessSlug: slug } }),
+    ]);
+
+    return !!(farmer || retailer);
+  }
+
+  // Generate a unique slug by appending numbers if needed
+  private async generateUniqueSlug(baseSlug: string): Promise<string> {
+    let slug = baseSlug;
+    let counter = 1;
+
+    while (await this.isSlugTaken(slug)) {
+      slug = `${baseSlug}-${counter}`;
+      counter++;
+    }
+
+    return slug;
   }
 
   // Get all farmers with filters and pagination
@@ -361,6 +414,37 @@ async addCertification(userId: string, certificationDto: AddCertificationDto) {
 
   return this.farmerRepository.save(farmer);
 }
+
+  // Check if a business slug is available (public method for frontend validation)
+  async checkSlugAvailability(slug: string): Promise<{ available: boolean; valid: boolean; message: string }> {
+    // Validate slug format
+    const valid = SlugUtil.validateSlug(slug);
+
+    if (!valid) {
+      return {
+        available: false,
+        valid: false,
+        message: 'Invalid slug format. Use only lowercase letters, numbers, and hyphens (3-63 characters).',
+      };
+    }
+
+    // Check if taken
+    const taken = await this.isSlugTaken(slug);
+
+    if (taken) {
+      return {
+        available: false,
+        valid: true,
+        message: 'This business slug is already taken.',
+      };
+    }
+
+    return {
+      available: true,
+      valid: true,
+      message: 'This business slug is available!',
+    };
+  }
 
   // Calculate distance between two points (Haversine formula)
   private calculateDistance(

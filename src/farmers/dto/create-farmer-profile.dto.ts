@@ -21,9 +21,18 @@ export class CreateFarmerProfileDto {
   @IsNotEmpty()
   farmName: string;
 
-  @ApiProperty({ 
+  @ApiProperty({
+    example: 'green-valley-farm',
+    description: 'Unique business slug for subdomain (e.g., green-valley-farm.agorva.com). Only lowercase letters, numbers, and hyphens allowed.',
+    required: false
+  })
+  @IsString()
+  @IsOptional()
+  businessSlug?: string;
+
+  @ApiProperty({
     example: 'Family-owned organic farm specializing in seasonal vegetables and fruits',
-    required: false 
+    required: false
   })
   @IsString()
   @IsOptional()

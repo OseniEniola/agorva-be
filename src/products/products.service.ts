@@ -86,7 +86,7 @@ export class ProductsService {
     return this.findOne(savedProduct.id);
   }
 
-  async findAll(queryDto: ProductQueryDto) {
+  async findAll(queryDto: ProductQueryDto, tenantSlug?: string) {
     const {
       page = 1,
       limit = 10,
@@ -105,6 +105,19 @@ export class ProductsService {
       .createQueryBuilder('product')
       .leftJoinAndSelect('product.images', 'images')
       .leftJoinAndSelect('product.seller', 'seller');
+
+    // If tenant slug is provided (subdomain), filter by that seller only
+    if (tenantSlug) {
+      const sellerInfo = await this.resolveSellerBySlug(tenantSlug);
+      if (sellerInfo) {
+        queryBuilder.andWhere('product.sellerId = :sellerId', {
+          sellerId: sellerInfo.id,
+        });
+      } else {
+        // If invalid tenant slug, return empty results
+        return { data: [], total: 0 };
+      }
+    }
 
     // Filters
     if (category) {
@@ -895,6 +908,34 @@ export class ProductsService {
         userLocation: { latitude, longitude },
       },
     };
+  }
+
+  /**
+   * Resolve seller ID and type from business slug (subdomain)
+   * Used for multi-tenancy subdomain routing
+   */
+  private async resolveSellerBySlug(
+    businessSlug: string,
+  ): Promise<{ id: string; type: 'farmer' | 'retailer' } | null> {
+    // Try to find farmer with this slug
+    const farmer = await this.farmersRepository.findOne({
+      where: { businessSlug },
+    });
+
+    if (farmer) {
+      return { id: farmer.userId, type: 'farmer' };
+    }
+
+    // Try to find retailer with this slug
+    const retailer = await this.retailersRepository.findOne({
+      where: { businessSlug },
+    });
+
+    if (retailer) {
+      return { id: retailer.userId, type: 'retailer' };
+    }
+
+    return null;
   }
 
   /**

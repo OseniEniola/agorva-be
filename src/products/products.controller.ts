@@ -27,6 +27,8 @@ import { Public } from '../auth/decorators/public.decorator';
 import { UserRole } from '../common/enums/user-role.enum';
 import { ResponseUtil } from '../common/utils/response.util';
 import { CurrentUser } from 'src/common/decorators/current-user.decorator';
+import { Tenant } from 'src/common/decorators/tenant.decorator';
+import type { TenantInfo } from 'src/common/middleware/tenant.middleware';
 import {
   ApiBearerAuth,
   ApiBody,
@@ -79,7 +81,7 @@ export class ProductsController {
   @Get()
   @ApiOperation({
     summary: 'Get all products',
-    description: 'Retrieve paginated list of products with filters',
+    description: 'Retrieve paginated list of products with filters. On main domain (agorva.com), shows all products. On subdomain (e.g., john-farm.agorva.com), shows only that seller\'s products.',
   })
   @ApiQuery({ name: 'page', required: false, type: Number })
   @ApiQuery({ name: 'limit', required: false, type: Number })
@@ -93,8 +95,15 @@ export class ProductsController {
   @ApiQuery({ name: 'organic', required: false, type: Boolean })
   @ApiQuery({ name: 'localOnly', required: false, type: Boolean })
   @ApiResponse({ status: 200, description: 'Products retrieved successfully' })
-  async findAll(@Query() queryDto: ProductQueryDto) {
-    const { data, total } = await this.productsService.findAll(queryDto);
+  async findAll(
+    @Query() queryDto: ProductQueryDto,
+    @Tenant() tenant: TenantInfo,
+  ) {
+    // Pass tenant subdomain to service for filtering
+    const { data, total } = await this.productsService.findAll(
+      queryDto,
+      tenant.subdomain || undefined,
+    );
     return ResponseUtil.paginated(
       data,
       queryDto.page || 1,

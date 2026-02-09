@@ -4,11 +4,12 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { Retailer } from './entities/retailer.entities';
 import { RetailerController } from './retailers.controller';
 import { User } from 'src/users/entities/user.entity';
+import { Farmer } from 'src/farmers/entities/farmer.entities';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([Retailer, User])],
+  imports: [TypeOrmModule.forFeature([Retailer, User, Farmer])],
   providers: [RetailersService],
   controllers: [RetailerController],
-  exports: [RetailersService]
+  exports: [RetailersService],
 })
 export class RetailersModule {}
