@@ -48,5 +48,6 @@ async function bootstrap() {
 
   console.log(`🚀 Application running on: http://localhost:${process.env.PORT}`);
   console.log(`🌍 Environment: ${configService.get('app.environment')}`);
+  console.log(`Database: ${configService.get('DB_NAME')}`);
 }
 bootstrap();

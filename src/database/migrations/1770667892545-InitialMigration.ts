@@ -538,9 +538,7 @@ export class InitialMigration1770667892545 implements MigrationInterface {
         await queryRunner.query(`
             CREATE INDEX "IDX_69828a178f152f157dcf2f70a8" ON "carts" ("userId")
         `);
-        await queryRunner.query(`
-            CREATE INDEX "IDX_69828a178f152f157dcf2f70a8" ON "carts" ("userId")
-        `);
+
         await queryRunner.query(`
             CREATE TYPE "public"."deliveries_provider_enum" AS ENUM('uber_direct', 'self_delivery', 'pickup')
         `);
@@ -606,12 +604,6 @@ export class InitialMigration1770667892545 implements MigrationInterface {
         `);
         await queryRunner.query(`
             CREATE INDEX "IDX_3235c9c06d9d3028a11ec8081d" ON "deliveries" ("status")
-        `);
-        await queryRunner.query(`
-            CREATE INDEX "IDX_3235c9c06d9d3028a11ec8081d" ON "deliveries" ("status")
-        `);
-        await queryRunner.query(`
-            CREATE INDEX "IDX_f7433e3639e213f901e22cf864" ON "deliveries" ("orderId")
         `);
         await queryRunner.query(`
             ALTER TABLE "farmers"
@@ -700,16 +692,10 @@ export class InitialMigration1770667892545 implements MigrationInterface {
             DROP INDEX "public"."IDX_3235c9c06d9d3028a11ec8081d"
         `);
         await queryRunner.query(`
-            DROP INDEX "public"."IDX_3235c9c06d9d3028a11ec8081d"
-        `);
-        await queryRunner.query(`
             DROP INDEX "public"."IDX_176207b0285713bd9ae6d14f70"
         `);
         await queryRunner.query(`
             DROP INDEX "public"."IDX_5cbaf0bed7a55ec4da5d4e558d"
-        `);
-        await queryRunner.query(`
-            DROP INDEX "public"."IDX_f7433e3639e213f901e22cf864"
         `);
         await queryRunner.query(`
             DROP TABLE "deliveries"
@@ -719,9 +705,6 @@ export class InitialMigration1770667892545 implements MigrationInterface {
         `);
         await queryRunner.query(`
             DROP TYPE "public"."deliveries_provider_enum"
-        `);
-        await queryRunner.query(`
-            DROP INDEX "public"."IDX_69828a178f152f157dcf2f70a8"
         `);
         await queryRunner.query(`
             DROP INDEX "public"."IDX_69828a178f152f157dcf2f70a8"
