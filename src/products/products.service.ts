@@ -417,7 +417,7 @@ export class ProductsService {
 
         result.successful++;
         result.createdIds && result.createdIds.push(savedProduct.id);
-      } catch (error) {
+      } catch (error:any) {
         result.failed++;
         result.errors.push({
           row: i + 1,
@@ -441,7 +441,7 @@ export class ProductsService {
       const jsonData = XLSX.utils.sheet_to_json(worksheet, { defval: null });
 
       return this.mapRowsToProducts(jsonData);
-    } catch (error) {
+    } catch (error:any) {
       throw new BadRequestException(
         `Failed to parse Excel file: ${error.message}`,
       );
@@ -468,7 +468,7 @@ export class ProductsService {
       }
 
       return this.mapRowsToProducts(parsed.data);
-    } catch (error) {
+    } catch (error:any) {
       throw new BadRequestException(
         `Failed to parse CSV file: ${error.message}`,
       );
